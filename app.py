@@ -73,7 +73,8 @@ def process_dbf(uploaded_file):
         tmp_path = tmp_file.name
     
     try:
-        table = DBF(tmp_path)
+        # یہاں 'ignore_missing_memofile=True' شامل کیا گیا ہے
+        table = DBF(tmp_path, ignore_missing_memofile=True) 
         new_records = 0
         for record in table:
             d = str(record.get('DATE', ''))
