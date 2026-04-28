@@ -1,95 +1,42 @@
-🚀 جدید حساب کتاب کا نظام - فوری شروعات
-Quick Start Guide
-⏱️ وقت: 5 منٹ
-مرحلہ 1: انسٹالیشن (Installation)
-Option A: Windows کے لیے
-PowerShell کھولیں (Admin mode میں)
-Powershell
-Option B: Linux/Mac کے لیے
-Bash
-مرحلہ 2: براؤزر میں کھولیں
-Code
-مرحلہ 3: لاگ ان کریں
-فیلڈ
-قیمت
-👤 صارف
-admin
-🔑 پاس ورڈ
-admin123
-🎯 پہلا کام: نیا اکاؤنٹ شامل کریں
-بائیں سائڈ میں "اکاؤنٹس" پر کلک کریں
-+ نیا اکاؤنٹ بٹن دبائیں
-یہ معلومات بھریں:
-کوڈ: 001
-نام: نقد رقم
-قسم: اثاثہ
-محفوظ کریں بٹن دبائیں
-✅ تمام ہو گیا!
-📝 دوسرا کام: داخلہ شامل کریں
-"داخلے" صفحہ پر جائیں
-+ نیا داخلہ بٹن دبائیں
-فارم بھریں:
-تاریخ: آج کی تاریخ
-اکاؤنٹ: نیا بنایا ہوا اکاؤنٹ منتخب کریں
-تفصیل: کوئی بھی تفصیل
-ڈیبٹ یا کریڈٹ: رقم درج کریں
-محفوظ کریں بٹن دبائیں
-✅ اب داخلہ دیکھیں ڈیش بورڈ میں!
-📊 تیسرا کام: رپورٹس دیکھیں
-"رپورٹس" صفحہ پر جائیں
-ٹرائل بیلنس آپ خود دیکھیں گے
-کسی اکاؤنٹ کی لیجر دیکھنے کے لیے:
-اکاؤنٹ منتخب کریں dropdown سے
-تفصیل دیکھیں
-✅ سب کچھ کام کر رہا ہے!
-🎓 صفحات کی تفصیل
-📈 ڈیش بورڈ
-خلاصہ اعداد و شمار
-حالیہ داخلے
-کل ڈیبٹ/کریڈٹ
-✏️ داخلے
-نیا داخلہ شامل کریں
-تمام داخلوں کی فہرست
-فلٹر اور تلاش
-📑 اکاؤنٹس
-نیا اکاؤنٹ بنائیں
-تمام اکاؤنٹس دیکھیں
-تفصیلات ترمیم کریں
-📋 رپورٹس
-ٹرائل بیلنس
-لیجر تفصیلات
-پرنٹ کریں
-🔧 عام مسائل
-سوال: سرور شروع نہیں ہو رہا
-حل:
-Bash
-سوال: ڈیٹا بیس خراب ہے
-حل:
-Bash
-سوال: لاگ ان نہیں ہو سکا
-حل:
-صارف: admin (بغیر اضافی جگہ)
-پاس ورڈ: admin123 (اچھی طرح)
-کیپس لاک چیک کریں
-💡 نکات
-🔐 پروڈکشن میں: ڈیفالٹ پاس ورڈ تبدیل کریں!
-📱 موبائل پر بھی: مکمل طور پر کام کرتا ہے
-🌙 رات کو: سفید ڈیزائن تھوڑا روشن ہے
-💾 ڈیٹا محفوظ: SQLite فائل میں محفوظ ہے
-📞 مدد
-اگر کوئی مسئلہ ہے:
-FAQ دیکھیں: یہ دستاویز
-GitHub: Issues رپورٹ کریں
-Email: support@jamia.edu.pk
-🎉 بہترین!
-اب آپ کا اپنا حساب کتاب کا نظام جاری ہے!
-اگلا:
-اکاؤنٹس شامل کریں
-داخلے درج کریں
-رپورٹس بنائیں
-دوسرے صارفین کو شامل کریں
-خوش رہو! 😊
-نہ سمجھ آیا؟
-مفصل دستاویز کے لیے README.md دیکھیں۔
-Didn't understand?
-See README.md for detailed documentation.
+# Madrasa Accounts Modern
+
+یہ ایک modern web-based version ہے جو legacy FoxPro DOS accounting files سے data import کرتا ہے اور اسے ایک نئی UI میں دکھاتا ہے۔
+
+## کیا شامل ہے
+
+- `C:\vDos\acc` سے legacy DBF data import
+- browser سے DBF files upload کر کے import
+- year selector
+- dashboard with totals, opening balance, cash in hand
+- ledger search
+- account heads summary
+- yearly control settings
+- نئی entries اور account updates کے لیے SQLite-based modern layer
+- CSV export
+
+## Legacy files جن سے app data اٹھاتا ہے
+
+- `JIIDYYYY.DBF` ledger entries
+- `JIICYYYY.DBF` year control settings
+- `JIICODED.DBF` account heads
+
+## Run
+
+```powershell
+python .\legacy_madrasa_app.py
+```
+
+پھر browser میں یہ URL کھولیں:
+
+```text
+http://127.0.0.1:8765
+```
+
+اگر یہ port استعمال ہو رہی ہو تو app اگلی available port لے لے گی۔
+
+## Important
+
+- legacy DBF files کو app read کرتا ہے، overwrite نہیں کرتا
+- uploaded files `uploaded_legacy` folder میں محفوظ ہو جاتی ہیں
+- modern edits `madrasa_modern.sqlite3` میں محفوظ ہوتے ہیں
+- دوبارہ import کرنے سے legacy rows refresh ہوں گی، لیکن modern manually-added rows برقرار رہیں گی

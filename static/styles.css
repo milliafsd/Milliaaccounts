@@ -1,5 +1,523 @@
-/* تمام صفحات کی اسٹائلنگ */
-/* RTL support */
-/* Responsive design */
-/* Beautiful animations */
-/* Professional colors */
+:root {
+  color-scheme: light;
+  --bg: #f4f7fb;
+  --surface: #ffffff;
+  --surface-soft: #edf3fa;
+  --line: #d6deea;
+  --text: #162033;
+  --muted: #5e6e87;
+  --accent: #0e695c;
+  --accent-soft: #d8efe9;
+  --danger: #b44444;
+  --danger-soft: #fff1f1;
+  --expense: #b56a20;
+  --shadow: 0 16px 36px rgba(22, 32, 51, 0.08);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+button, input, select, a {
+  font: inherit;
+}
+
+.is-hidden {
+  display: none !important;
+}
+
+.login-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.login-card {
+  width: min(480px, 100%);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  padding: 28px;
+}
+
+.login-eyebrow,
+.eyebrow {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.login-title {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.25;
+}
+
+.login-subtitle,
+.login-hint,
+.section-note,
+.panel-head p,
+.inline-hint {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.login-form,
+.sidebar-field,
+.form-grid label {
+  display: grid;
+  gap: 8px;
+}
+
+.login-form {
+  margin-top: 20px;
+}
+
+.login-status {
+  min-height: 20px;
+  color: var(--danger);
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.sidebar {
+  background: var(--surface);
+  border-right: 1px solid var(--line);
+  padding: 22px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.sidebar-brand h2 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.25;
+}
+
+.sidebar-section {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+}
+
+.sidebar-section-title {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.sidebar-field {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.button-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.sidebar-nav {
+  display: grid;
+  gap: 8px;
+}
+
+.nav-button {
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.nav-button.is-active {
+  background: var(--accent-soft);
+  border-color: #a6d4ca;
+  color: var(--accent);
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  display: grid;
+  gap: 10px;
+}
+
+.year-chip {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.main-content {
+  padding: 24px 28px 32px;
+}
+
+.content-header {
+  margin-bottom: 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.content-header h1 {
+  margin: 0;
+  font-size: 30px;
+}
+
+.header-switch {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.mini-switch {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.mini-switch.is-active {
+  background: var(--accent-soft);
+  border-color: #a6d4ca;
+  color: var(--accent);
+}
+
+input,
+select {
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+input[readonly] {
+  background: #f8fbff;
+}
+
+.action-button {
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: var(--accent);
+  color: #fff;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.action-muted {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--line);
+}
+
+.action-danger {
+  background: var(--danger-soft);
+  border-color: #efc8c8;
+  color: var(--danger);
+}
+
+.view {
+  display: none;
+}
+
+.view.is-active {
+  display: block;
+}
+
+.panel,
+.stat,
+.report-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.panel {
+  padding: 18px;
+  margin-bottom: 20px;
+}
+
+.panel-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+}
+
+.panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.panel-head h3 {
+  margin: 0;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.form-grid .full {
+  grid-column: 1 / -1;
+}
+
+.form-actions,
+.filter-row,
+.report-card-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.filter-row label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+  min-width: 160px;
+}
+
+.inline-hint {
+  padding: 10px 12px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: #fbfdff;
+}
+
+.table-wrap {
+  overflow: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+th,
+td {
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+  font-size: 14px;
+  word-break: break-word;
+}
+
+th {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.row-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mini-button {
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--surface-soft);
+  cursor: pointer;
+}
+
+.mini-button.danger {
+  color: var(--danger);
+  background: var(--danger-soft);
+  border-color: #efc8c8;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.stat {
+  padding: 16px;
+}
+
+.stat label {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.stat strong {
+  font-size: 24px;
+}
+
+.chart {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(82px, 1fr));
+  gap: 10px;
+  min-height: 240px;
+  align-items: end;
+}
+
+.chart-col {
+  display: grid;
+  gap: 8px;
+}
+
+.bars {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  min-height: 180px;
+  align-items: end;
+}
+
+.bar {
+  min-height: 4px;
+  border-radius: 6px 6px 0 0;
+}
+
+.bar.income {
+  background: #27907b;
+}
+
+.bar.expense {
+  background: var(--expense);
+}
+
+.chart-label {
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.report-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.report-card {
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.report-card h4,
+.report-card p {
+  margin: 0;
+}
+
+.report-card p {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.money-positive {
+  color: var(--accent);
+}
+
+.money-negative {
+  color: var(--danger);
+}
+
+.rtl {
+  direction: rtl;
+}
+
+.rtl .sidebar {
+  border-right: 0;
+  border-left: 1px solid var(--line);
+}
+
+.rtl th,
+.rtl td,
+.rtl .nav-button,
+.rtl .content-header,
+.rtl .panel-head,
+.rtl .sidebar-brand,
+.rtl .sidebar-section,
+.rtl .year-chip {
+  text-align: right;
+}
+
+.rtl .row-actions,
+.rtl .report-card-actions,
+.rtl .form-actions,
+.rtl .filter-row {
+  justify-content: flex-start;
+}
+
+@media (max-width: 1180px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: static;
+    height: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .panel-grid,
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .main-content {
+    padding: 18px 14px 24px;
+  }
+
+  .sidebar {
+    padding: 18px 14px;
+  }
+
+  .header-switch {
+    width: 100%;
+    grid-template-columns: 1fr 1fr;
+  }
+}

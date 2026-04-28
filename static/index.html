@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Jamia Accounts Modern</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <div id="loginScreen" class="login-screen">
+      <div class="login-card">
+        <p class="login-eyebrow" data-i18n="loginEyebrow">Secure Access</p>
+        <h1 class="login-title" id="loginBrand">JAMIA MILLIA ISLAMIA AND MSJID MADRASA WALI</h1>
+        <p class="login-subtitle" data-i18n="loginSubtitle">Please sign in before opening the accounting system.</p>
+        <form id="loginForm" class="login-form">
+          <label>
+            <span data-i18n="username">Username</span>
+            <input name="username" type="text" value="admin" required>
+          </label>
+          <label>
+            <span data-i18n="password">Password</span>
+            <input name="password" type="password" value="admin123" required>
+          </label>
+          <button class="action-button" type="submit" data-i18n="login">Login</button>
+        </form>
+        <p class="login-hint" data-i18n="loginHint">Default login: admin / admin123</p>
+        <p id="loginStatus" class="login-status"></p>
+      </div>
+    </div>
+
+    <div id="appShell" class="app-shell is-hidden">
+      <aside class="sidebar">
+        <div class="sidebar-brand">
+          <p class="eyebrow" data-i18n="eyebrow">Madrasa Accounting</p>
+          <h2 id="brandName">JAMIA MILLIA ISLAMIA AND MSJID MADRASA WALI</h2>
+          <p id="userCaption" class="section-note">-</p>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">
+            <strong data-i18n="systemControls">System Controls</strong>
+          </div>
+          <label class="sidebar-field">
+            <span data-i18n="language">Language</span>
+            <select id="languageSelect">
+              <option value="en">English</option>
+              <option value="ur">اردو</option>
+            </select>
+          </label>
+          <label class="sidebar-field">
+            <span data-i18n="workingYear">Working Year</span>
+            <select id="yearSelect"></select>
+          </label>
+          <div class="button-stack">
+            <button id="reloadYearButton" class="action-button action-muted" data-i18n="reloadYear">Reload Year</button>
+            <button id="jumpToIncomeButton" class="action-button action-muted" data-view-target="incomeView" data-i18n="openIncomeEntry">Open Income Entry</button>
+            <button id="jumpToExpenseButton" class="action-button action-muted" data-view-target="expenseView" data-i18n="openExpenseEntry">Open Expense Entry</button>
+          </div>
+          <div class="year-chip">
+            <span data-i18n="selectedYear">Selected Year</span>
+            <strong id="selectedYearBadge">-</strong>
+          </div>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">
+            <strong data-i18n="legacyTools">Legacy Data Tools</strong>
+          </div>
+          <label class="sidebar-field">
+            <span data-i18n="uploadLegacy">Upload Old Data</span>
+            <input id="legacyUploadInput" type="file" multiple accept=".dbf,.DBF,.acb,.ACB,.cdx,.CDX,.fpt,.FPT">
+          </label>
+          <div class="button-stack">
+            <button id="uploadLegacyButton" class="action-button" data-i18n="uploadFiles">Upload Files</button>
+            <button id="importYearButton" class="action-button action-muted" data-i18n="importYear">Import Current Year</button>
+          </div>
+        </div>
+
+        <nav class="sidebar-nav" aria-label="Main Navigation">
+          <button class="nav-button is-active" data-view="incomeView" data-i18n="tabIncome">Income Entry</button>
+          <button class="nav-button" data-view="expenseView" data-i18n="tabExpense">Expense Entry</button>
+          <button class="nav-button" data-view="reportsView" data-i18n="tabReports">Reports</button>
+          <button class="nav-button" data-view="ledgerView" data-i18n="tabLedger">Ledger</button>
+          <button class="nav-button" data-view="accountsView" data-i18n="tabAccounts">Accounts</button>
+          <button class="nav-button" data-view="overviewView" data-i18n="tabOverview">Overview</button>
+          <button class="nav-button" data-view="settingsView" data-i18n="tabSettings">Settings</button>
+        </nav>
+
+        <div class="sidebar-footer">
+          <p id="statusText" class="section-note">Loading...</p>
+          <button id="logoutButton" class="action-button action-danger" data-i18n="logout">Logout</button>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <header class="content-header">
+          <div>
+            <h1 id="pageTitle">Income Entry</h1>
+            <p id="pageNote" class="section-note">Use separate pages for income and payments.</p>
+          </div>
+          <div class="header-switch" aria-label="Entry Switch">
+            <button class="mini-switch is-active" data-view-target="incomeView" data-i18n="tabIncome">Income Entry</button>
+            <button class="mini-switch" data-view-target="expenseView" data-i18n="tabExpense">Expense Entry</button>
+          </div>
+        </header>
+
+        <section id="incomeView" class="view is-active">
+          <div class="panel-grid">
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <h3 data-i18n="quickIncomeEntry">Quick Income Entry</h3>
+                  <p data-i18n="quickIncomeNote">Enter income in the selected year only.</p>
+                </div>
+              </div>
+              <form id="incomeForm" class="form-grid">
+                <input name="id" type="hidden">
+                <label><span data-i18n="date">Date</span><input name="entry_date" type="date" required></label>
+                <label><span data-i18n="code">Code</span><input name="code" type="text" maxlength="3" required></label>
+                <label class="full"><span data-i18n="accountHead">Account Head</span><input name="head_name" type="text" readonly></label>
+                <label><span data-i18n="branch">Branch</span><input name="branch" type="text" maxlength="2" value="G"></label>
+                <label><span data-i18n="category">Category</span><input name="category" type="text" maxlength="20" value="GENERAL"></label>
+                <label><span data-i18n="receiptNo">Receipt No</span><input name="receipt_no" type="number" min="0"></label>
+                <label><span data-i18n="jvNo">JV No</span><input name="jv_no" type="number" min="0"></label>
+                <label class="full"><span data-i18n="description">Description</span><input name="description" type="text" required></label>
+                <label><span data-i18n="amount">Amount</span><input name="amount" type="number" step="0.01" min="0" required></label>
+                <div class="inline-hint full" data-i18n="codeHint">As soon as you type the code, its account head appears automatically.</div>
+                <div class="form-actions full">
+                  <button class="action-button" type="submit" data-i18n="saveIncome">Save Income</button>
+                  <button class="action-button action-muted" type="button" data-reset="incomeForm" data-i18n="reset">Reset</button>
+                </div>
+              </form>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <h3 data-i18n="recentIncome">Recent Income</h3>
+                  <p data-i18n="recentIncomeManage">View, edit, and delete previous income entries.</p>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th data-i18n="colDate">Date</th>
+                      <th data-i18n="colCode">Code</th>
+                      <th data-i18n="colAccount">Account</th>
+                      <th data-i18n="colDescription">Description</th>
+                      <th data-i18n="colIncome">Income</th>
+                      <th data-i18n="colActions">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="incomeQuickBody"></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section id="expenseView" class="view">
+          <div class="panel-grid">
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <h3 data-i18n="quickExpenseEntry">Quick Expense Entry</h3>
+                  <p data-i18n="quickExpenseNote">Enter payments in the selected year only.</p>
+                </div>
+              </div>
+              <form id="expenseForm" class="form-grid">
+                <input name="id" type="hidden">
+                <label><span data-i18n="date">Date</span><input name="entry_date" type="date" required></label>
+                <label><span data-i18n="code">Code</span><input name="code" type="text" maxlength="3" required></label>
+                <label class="full"><span data-i18n="accountHead">Account Head</span><input name="head_name" type="text" readonly></label>
+                <label><span data-i18n="branch">Branch</span><input name="branch" type="text" maxlength="2" value="G"></label>
+                <label><span data-i18n="category">Category</span><input name="category" type="text" maxlength="20" value="GENERAL"></label>
+                <label><span data-i18n="voucherNo">Voucher No</span><input name="voucher_no" type="number" min="0"></label>
+                <label><span data-i18n="jvNo">JV No</span><input name="jv_no" type="number" min="0"></label>
+                <label class="full"><span data-i18n="description">Description</span><input name="description" type="text" required></label>
+                <label><span data-i18n="amount">Amount</span><input name="amount" type="number" step="0.01" min="0" required></label>
+                <div class="inline-hint full" data-i18n="codeHint">As soon as you type the code, its account head appears automatically.</div>
+                <div class="form-actions full">
+                  <button class="action-button" type="submit" data-i18n="saveExpense">Save Expense</button>
+                  <button class="action-button action-muted" type="button" data-reset="expenseForm" data-i18n="reset">Reset</button>
+                </div>
+              </form>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <h3 data-i18n="recentExpense">Recent Expense</h3>
+                  <p data-i18n="recentExpenseManage">View, edit, and delete previous expense entries.</p>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th data-i18n="colDate">Date</th>
+                      <th data-i18n="colCode">Code</th>
+                      <th data-i18n="colAccount">Account</th>
+                      <th data-i18n="colDescription">Description</th>
+                      <th data-i18n="colExpense">Expense</th>
+                      <th data-i18n="colActions">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="expenseQuickBody"></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section id="reportsView" class="view">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h3 data-i18n="reportsTitle">Reports And Printing</h3>
+                <p data-i18n="reportsNote">Print and download yearly reports like cash book, ledger, trial balance, and opening balance.</p>
+              </div>
+            </div>
+            <div id="annualReportCards" class="report-card-grid"></div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h3 data-i18n="customReportTitle">Custom Report View</h3>
+                <p data-i18n="customReportNote">Choose type and dates, then open print view or download PDF.</p>
+              </div>
+            </div>
+            <div class="filter-row">
+              <label>
+                <span data-i18n="reportType">Report Type</span>
+                <select id="reportTypeSelect">
+                  <option value="ledger">Ledger</option>
+                  <option value="cashbook">Cash Book</option>
+                  <option value="trial-balance">Trial Balance</option>
+                  <option value="opening-balance">Opening Balance</option>
+                  <option value="income-expense">Income And Expense</option>
+                </select>
+              </label>
+              <label>
+                <span data-i18n="fromDate">From Date</span>
+                <input id="reportFromDate" type="date">
+              </label>
+              <label>
+                <span data-i18n="toDate">To Date</span>
+                <input id="reportToDate" type="date">
+              </label>
+              <button id="reportLoadButton" class="action-button" data-i18n="viewReport">View Report</button>
+              <button id="reportPrintButton" class="action-button action-muted" data-i18n="printReport">Print</button>
+              <a id="reportPdfLink" class="action-button action-muted" href="#" data-i18n="downloadPdf">Download PDF</a>
+              <a id="reportCsvLink" class="action-button action-muted" href="#" data-i18n="downloadCsv">Download CSV</a>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h3 id="reportPreviewTitle">Report Preview</h3>
+                <p id="reportPreviewMeta" class="section-note">-</p>
+              </div>
+            </div>
+            <div id="reportSummary" class="summary-grid compact"></div>
+            <div class="table-wrap wide">
+              <table>
+                <thead id="reportHead"></thead>
+                <tbody id="reportBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section id="ledgerView" class="view">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h3 data-i18n="ledgerTitle">Ledger Browser</h3>
+                <p data-i18n="ledgerNote">Search and manage entries inside the selected year only.</p>
+              </div>
+            </div>
+            <div class="filter-row">
+              <label><span data-i18n="search">Search</span><input id="ledgerSearch" type="search"></label>
+              <label><span data-i18n="code">Code</span><input id="ledgerCode" type="text" maxlength="3"></label>
+              <label><span data-i18n="fromDate">From Date</span><input id="ledgerFromDate" type="date"></label>
+              <label><span data-i18n="toDate">To Date</span><input id="ledgerToDate" type="date"></label>
+              <label>
+                <span data-i18n="entryMode">Entry Type</span>
+                <select id="ledgerMode">
+                  <option value="">All</option>
+                  <option value="income">Income</option>
+                  <option value="expense">Expense</option>
+                </select>
+              </label>
+              <button id="ledgerRefreshButton" class="action-button" data-i18n="refreshLedger">Refresh Ledger</button>
+            </div>
+            <div class="table-wrap wide">
+              <table>
+                <thead>
+                  <tr>
+                    <th data-i18n="colDate">Date</th>
+                    <th data-i18n="colCode">Code</th>
+                    <th data-i18n="colAccount">Account</th>
+                    <th data-i18n="colDescription">Description</th>
+                    <th data-i18n="colIncome">Income</th>
+                    <th data-i18n="colExpense">Expense</th>
+                    <th data-i18n="colSource">Source</th>
+                    <th data-i18n="colActions">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="ledgerBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section id="accountsView" class="view">
+          <div class="panel-grid">
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <h3 data-i18n="accountHeads">Account Heads</h3>
+                  <p data-i18n="accountHeadsNote">Code number and head name remain ready for data entry.</p>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th data-i18n="colCode">Code</th>
+                      <th data-i18n="colAccount">Account</th>
+                      <th data-i18n="colType">Type</th>
+                      <th data-i18n="colEntries">Entries</th>
+                      <th data-i18n="colBalance">Balance</th>
+                    </tr>
+                  </thead>
+                  <tbody id="accountsBody"></tbody>
+                </table>
+              </div>
+            </section>
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <h3 data-i18n="saveAccountHead">Save Account Head</h3>
+                  <p data-i18n="saveAccountHeadNote">Create or update code and its head name.</p>
+                </div>
+              </div>
+              <form id="accountForm" class="form-grid">
+                <label><span data-i18n="code">Code</span><input name="code" type="text" maxlength="3" required></label>
+                <label>
+                  <span data-i18n="type">Type</span>
+                  <select name="atype">
+                    <option value="">Select</option>
+                    <option value="BS">BS</option>
+                    <option value="TA">TA</option>
+                    <option value="PA">PA</option>
+                  </select>
+                </label>
+                <label class="full"><span data-i18n="accountName">Account Name</span><input name="name" type="text" required></label>
+                <button class="action-button" type="submit" data-i18n="saveAccount">Save Account</button>
+              </form>
+            </section>
+          </div>
+        </section>
+
+        <section id="overviewView" class="view">
+          <div id="summaryGrid" class="summary-grid"></div>
+          <div class="panel-grid">
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <h3 data-i18n="monthlyFlow">Monthly Flow</h3>
+                  <p data-i18n="monthlyFlowNote">Monthly income and expense totals.</p>
+                </div>
+              </div>
+              <div id="monthlyChart" class="chart"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <h3 data-i18n="topAccounts">Top Accounts</h3>
+                  <p data-i18n="topAccountsNote">Strongest balances in the selected year.</p>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th data-i18n="colCode">Code</th>
+                      <th data-i18n="colAccount">Account</th>
+                      <th data-i18n="colType">Type</th>
+                      <th data-i18n="colBalance">Balance</th>
+                    </tr>
+                  </thead>
+                  <tbody id="topAccountsBody"></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section id="settingsView" class="view">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h3 data-i18n="yearSettings">Year Settings</h3>
+                <p data-i18n="yearSettingsNote">Date range and cash values stay attached to the selected year.</p>
+              </div>
+            </div>
+            <form id="settingsForm" class="form-grid">
+              <label><span data-i18n="fromDate">From Date</span><input name="start_date" type="date"></label>
+              <label><span data-i18n="toDate">To Date</span><input name="end_date" type="date"></label>
+              <label><span data-i18n="cashInHand">Cash In Hand</span><input name="cash_in_hand" type="number" step="0.01"></label>
+              <label><span data-i18n="minCash">Min Cash</span><input name="min_cash" type="number" step="0.01"></label>
+              <label><span data-i18n="maxCash">Max Cash</span><input name="max_cash" type="number" step="0.01"></label>
+              <label><span data-i18n="lastJvNo">Last JV No</span><input name="last_jvno" type="number" min="0"></label>
+              <button class="action-button" type="submit" data-i18n="saveSettings">Save Settings</button>
+            </form>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
