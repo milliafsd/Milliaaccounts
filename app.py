@@ -1,321 +1,416 @@
-import streamlit as st
-import pandas as pd
-import sqlite3
+#!/usr/bin/env python3
+"""
+Modern Madrasa Accounting System – Flask + SQLite
+Beautiful, secure, and easy to use
+"""
 import os
-import tempfile
-from dbfread import DBF
-import base64
-from datetime import datetime
+import json
+import secrets
+import sqlite3
+import hashlib
+from datetime import datetime, timedelta
+from functools import wraps
+from pathlib import Path
 
-# ---------------------------- ڈیٹا بیس سیٹ اپ ----------------------------
-conn = sqlite3.connect('madrasa_accounts.db', check_same_thread=False)
-c = conn.cursor()
+from flask import Flask, render_template, request, jsonify, session, send_from_directory
+from werkzeug.security import generate_password_hash, check_password_hash
+
+# Configuration
+APP_DIR = Path(__file__).resolve().parent
+DB_PATH = APP_DIR / "jamia_data.db"
+STATIC_DIR = APP_DIR / "static"
+TEMPLATES_DIR = APP_DIR / "templates"
+
+app = Flask(__name__, static_folder=str(STATIC_DIR), template_folder=str(TEMPLATES_DIR))
+app.secret_key = os.getenv("SECRET_KEY", secrets.token_hex(32))
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SECURE"] = False  # Set True in production with HTTPS
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=2)
+
+BRAND_NAME = "جامیہ ملیہ اسلامیہ فیصل آباد"
+BRAND_NAME_EN = "JAMIA MILLIA ISLAMIA FAISALABAD"
+
+# ============================================================================
+# DATABASE HELPERS
+# ============================================================================
+
+def get_db():
+    """Get database connection"""
+    db = sqlite3.connect(DB_PATH)
+    db.row_factory = sqlite3.Row
+    db.execute("PRAGMA foreign_keys = ON")
+    return db
 
 def init_db():
-    # ٹرانزیکشنز ٹیبل
-    c.execute('''CREATE TABLE IF NOT EXISTS transactions
-                 (date TEXT, receipt_no TEXT, jvno TEXT, code TEXT, name TEXT,
-                  description TEXT, income REAL, payment REAL)''')
-    # اوپننگ بیلنس ٹیبل
-    c.execute('''CREATE TABLE IF NOT EXISTS opening_balances
-                 (year TEXT, code TEXT, balance REAL, PRIMARY KEY(year, code))''')
-    conn.commit()
+    """Initialize database schema"""
+    db = get_db()
+    db.executescript("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            display_name TEXT NOT NULL,
+            role TEXT DEFAULT 'user',
+            is_active INTEGER DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        
+        CREATE TABLE IF NOT EXISTS accounts (
+            code TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            type TEXT NOT NULL DEFAULT 'General',
+            description TEXT,
+            is_active INTEGER DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        
+        CREATE TABLE IF NOT EXISTS entries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            entry_date TEXT NOT NULL,
+            voucher_no TEXT,
+            account_code TEXT NOT NULL,
+            description TEXT,
+            debit REAL DEFAULT 0,
+            credit REAL DEFAULT 0,
+            reference TEXT,
+            created_by TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(account_code) REFERENCES accounts(code)
+        );
+        
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        
+        CREATE INDEX IF NOT EXISTS idx_entries_date ON entries(entry_date);
+        CREATE INDEX IF NOT EXISTS idx_entries_account ON entries(account_code);
+    """)
+    db.commit()
+    db.close()
 
-init_db()
+def seed_default_user():
+    """Seed default admin user"""
+    db = get_db()
+    exists = db.execute("SELECT id FROM users WHERE username = 'admin'").fetchone()
+    if not exists:
+        password_hash = generate_password_hash("admin123")
+        db.execute(
+            "INSERT INTO users (username, password_hash, display_name, role) VALUES (?, ?, ?, ?)",
+            ("admin", password_hash, "Administrator", "admin")
+        )
+        db.commit()
+    db.close()
 
-# ---------------------------- اکاؤنٹ ماسٹر ----------------------------
-ACCOUNT_MASTER = {
-    "001": "صدقات", "002": "زکوٰۃ", "003": "عام عطیات", "004": "تعمیراتی عطیات",
-    "005": "کھانے کے اخراجات", "006": "قرض حسنہ", "007": "بجلی", "008": "ٹیلی فون و ڈاک",
-    "009": "سوئی گیس", "010": "متفرق اخراجات", "011": "مسجد عطیات", "012": "کرایہ متفرق",
-    "013": "برقی سامان", "014": "مرمت و دیکھ بھال", "015": "نقل و حمل",
-    "016": "فرنیچر و فکسچر", "017": "ادویات", "018": "طباعت و اسٹیشنری",
-    "019": "اخبارات", "020": "لانڈری", "021": "کپڑے اور جوتے", "022": "کراکری",
-    "023": "آڈٹ فیس", "024": "کتب", "025": "تنخواہیں", "026": "صفائی اخراجات",
-    "027": "دیگر آمدنی", "028": "حبیب بینک اکاؤنٹ نمبر 17271-68", "029": "بینک چارجز",
-    "030": "کھالوں کی فروخت", "031": "قالین", "032": "دفتری سازوسامان", "033": "عمارت",
-    "034": "صفائی مصلے", "035": "صفائی وغیرہ", "036": "واٹر پمپ",
-    "037": "قابل وصول اکاؤنٹ", "038": "جمع شدہ فنڈ", "039": "قابل ادائیگی اخراجات",
-    "040": "اجرت وغیرہ", "041": "کمپیوٹر", "042": "لائبریری کتب", "043": "سیکیورٹی ڈپازٹ",
-    "044": "طلبہ انعامات", "045": "وظائف", "046": "سولر سسٹم", "047": "ٹف ٹائلز"
-}
+# ============================================================================
+# AUTHENTICATION
+# ============================================================================
 
-# ---------------------------- حسب ضرورت CSS (RTL + پرنٹ) ----------------------------
-st.set_page_config(page_title="جامعہ اکاؤنٹس", layout="wide")
-st.markdown("""
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu&display=swap');
-    html, body, [class*="css"] {
-        direction: rtl;
-        text-align: right;
-        font-family: 'Noto Sans Arabic', sans-serif;
-    }
-    .stButton>button {
-        width: 100%;
-        border-radius: 12px;
-        background-color: #0d6efd;
-        color: white;
-        font-weight: bold;
-    }
-    .reportview-container .main .block-container {
-        padding-top: 2rem;
-    }
-    .css-1d391kg {direction: rtl;}
-    .print-only {display: none;}
-    @media print {
-        .no-print {display: none !important;}
-        .print-only {display: block !important;}
-    }
-</style>
-""", unsafe_allow_html=True)
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if "user_id" not in session:
+            return jsonify({"error": "Unauthorized"}), 401
+        return f(*args, **kwargs)
+    return decorated_function
 
-# ---------------------------- معاون فنکشنز ----------------------------
-def get_years():
-    c.execute("SELECT DISTINCT substr(date,1,4) FROM transactions ORDER BY 1")
-    trans_years = [row[0] for row in c.fetchall()]
-    c.execute("SELECT DISTINCT year FROM opening_balances ORDER BY 1")
-    bal_years = [row[0] for row in c.fetchall()]
-    return sorted(set(trans_years + bal_years), reverse=True)
+@app.before_request
+def before_request():
+    session.permanent = True
+    app.permanent_session_lifetime = timedelta(hours=2)
 
-def get_current_year():
-    years = get_years()
-    return years[0] if years else str(datetime.now().year)
+# ============================================================================
+# API ROUTES
+# ============================================================================
 
-def download_link(df, filename, text):
-    csv = df.to_csv(index=False).encode('utf-8')
-    b64 = base64.b64encode(csv).decode()
-    href = f'<a href="data:file/csv;base64,{b64}" download="{filename}">{text}</a>'
-    return href
+@app.route("/api/login", methods=["POST"])
+def login():
+    """User login"""
+    data = request.get_json()
+    username = data.get("username", "").strip()
+    password = data.get("password", "")
+    
+    db = get_db()
+    user = db.execute(
+        "SELECT id, username, display_name, role FROM users WHERE username = ? AND is_active = 1",
+        (username,)
+    ).fetchone()
+    db.close()
+    
+    if not user or not check_password_hash(user["password_hash"], password):
+        return jsonify({"error": "نام یا پاس ورڈ غلط ہے"}), 401
+    
+    session["user_id"] = user["id"]
+    session["username"] = user["username"]
+    session["display_name"] = user["display_name"]
+    session["role"] = user["role"]
+    
+    return jsonify({
+        "success": True,
+        "user": {
+            "username": user["username"],
+            "display_name": user["display_name"],
+            "role": user["role"]
+        }
+    })
 
-def print_button():
-    st.markdown("""
-    <button onclick="window.print();" class="no-print" style="padding:8px 16px; background:#2e7d32; color:white; border:none; border-radius:8px; margin:10px 0;">
-        🖨️ پرنٹ کریں
-    </button>
-    """, unsafe_allow_html=True)
+@app.route("/api/logout", methods=["POST"])
+def logout():
+    """User logout"""
+    session.clear()
+    return jsonify({"success": True})
 
-def process_dbf(uploaded_file):
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".dbf") as tmp_file:
-        tmp_file.write(uploaded_file.getbuffer())
-        tmp_path = tmp_file.name
+@app.route("/api/me")
+@login_required
+def get_current_user():
+    """Get current user info"""
+    return jsonify({
+        "username": session.get("username"),
+        "display_name": session.get("display_name"),
+        "role": session.get("role")
+    })
+
+# ============================================================================
+# ACCOUNTS API
+# ============================================================================
+
+@app.route("/api/accounts", methods=["GET"])
+@login_required
+def get_accounts():
+    """Get all accounts"""
+    db = get_db()
+    accounts = db.execute(
+        "SELECT * FROM accounts WHERE is_active = 1 ORDER BY code"
+    ).fetchall()
+    db.close()
+    return jsonify([dict(a) for a in accounts])
+
+@app.route("/api/accounts", methods=["POST"])
+@login_required
+def create_account():
+    """Create new account"""
+    if session.get("role") != "admin":
+        return jsonify({"error": "صرف ایڈمن"}), 403
+    
+    data = request.get_json()
+    db = get_db()
     try:
-        table = DBF(tmp_path, ignore_missing_memofile=True)
-        new_records = 0
-        for record in table:
-            d = str(record.get('DATE', ''))
-            f_date = f"{d[:4]}-{d[4:6]}-{d[6:]}" if len(d) == 8 else d
-            acc_code = str(record.get('CODE', '')).strip()
-            acc_name = ACCOUNT_MASTER.get(acc_code, "نامعلوم کھاتہ")
-            c.execute("INSERT INTO transactions VALUES (?,?,?,?,?,?,?,?)",
-                      (f_date, record.get('RECEIPT',''), record.get('JVNO',''), acc_code, acc_name,
-                       record.get('DESC1',''), record.get('INCOME',0), record.get('PAYMENT',0)))
-            new_records += 1
-        conn.commit()
-        os.remove(tmp_path)
-        return new_records
+        db.execute(
+            "INSERT INTO accounts (code, name, type, description) VALUES (?, ?, ?, ?)",
+            (data.get("code"), data.get("name"), data.get("type", "General"), data.get("description", ""))
+        )
+        db.commit()
+        db.close()
+        return jsonify({"success": True})
+    except sqlite3.IntegrityError:
+        db.close()
+        return jsonify({"error": "یہ کوڈ پہلے سے موجود ہے"}), 400
+
+@app.route("/api/accounts/<code>", methods=["PUT"])
+@login_required
+def update_account(code):
+    """Update account"""
+    if session.get("role") != "admin":
+        return jsonify({"error": "صرف ایڈمن"}), 403
+    
+    data = request.get_json()
+    db = get_db()
+    db.execute(
+        "UPDATE accounts SET name = ?, type = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE code = ?",
+        (data.get("name"), data.get("type"), data.get("description"), code)
+    )
+    db.commit()
+    db.close()
+    return jsonify({"success": True})
+
+# ============================================================================
+# ENTRIES API
+# ============================================================================
+
+@app.route("/api/entries", methods=["GET"])
+@login_required
+def get_entries():
+    """Get entries with filters"""
+    from_date = request.args.get("from_date")
+    to_date = request.args.get("to_date")
+    account_code = request.args.get("account_code")
+    limit = int(request.args.get("limit", 100))
+    
+    db = get_db()
+    query = "SELECT * FROM entries WHERE 1=1"
+    params = []
+    
+    if from_date:
+        query += " AND entry_date >= ?"
+        params.append(from_date)
+    if to_date:
+        query += " AND entry_date <= ?"
+        params.append(to_date)
+    if account_code:
+        query += " AND account_code = ?"
+        params.append(account_code)
+    
+    query += " ORDER BY entry_date DESC LIMIT ?"
+    params.append(limit)
+    
+    entries = db.execute(query, params).fetchall()
+    db.close()
+    return jsonify([dict(e) for e in entries])
+
+@app.route("/api/entries", methods=["POST"])
+@login_required
+def create_entry():
+    """Create new entry"""
+    data = request.get_json()
+    db = get_db()
+    
+    try:
+        db.execute(
+            """INSERT INTO entries (entry_date, voucher_no, account_code, description, 
+                                    debit, credit, reference, created_by)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                data.get("entry_date", datetime.now().strftime("%Y-%m-%d")),
+                data.get("voucher_no", ""),
+                data.get("account_code"),
+                data.get("description", ""),
+                float(data.get("debit", 0)),
+                float(data.get("credit", 0)),
+                data.get("reference", ""),
+                session.get("username")
+            )
+        )
+        db.commit()
+        db.close()
+        return jsonify({"success": True})
     except Exception as e:
-        return f"خرابی: {e}"
+        db.close()
+        return jsonify({"error": str(e)}), 400
 
-# ---------------------------- سائیڈ بار ----------------------------
-with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/3222/3222672.png", width=80)
-    st.title("📋 جامعہ ملیہ اسلامیہ")
-    menu = st.radio("مینو", ["🏠 ڈیش بورڈ", "➕ نئی انٹری", "📒 کیش بک", "📚 لیجر", "⚖️ ٹرائل بیلنس", "🔓 اوپننگ بیلنس", "📤 ڈیٹا اپ لوڈ", "⚙️ بیک اپ/ریسٹور"])
+@app.route("/api/entries/<int:id>", methods=["DELETE"])
+@login_required
+def delete_entry(id):
+    """Delete entry"""
+    if session.get("role") != "admin":
+        return jsonify({"error": "صرف ایڈمن"}), 403
     
-    # سال کا انتخاب (گلوبل فلٹر)
-    years = get_years()
-    if years:
-        selected_year = st.selectbox("📅 مالی سال منتخب کریں", years, index=0)
-    else:
-        selected_year = str(datetime.now().year)
-        st.info("کوئی ڈیٹا موجود نہیں، پہلے انٹری کریں")
-    st.session_state['selected_year'] = selected_year
+    db = get_db()
+    db.execute("DELETE FROM entries WHERE id = ?", (id,))
+    db.commit()
+    db.close()
+    return jsonify({"success": True})
 
-# ---------------------------- مینو پیجز ----------------------------
-if menu == "🏠 ڈیش بورڈ":
-    st.header("مالیاتی خلاصہ")
-    year = st.session_state['selected_year']
-    df = pd.read_sql_query(f"SELECT * FROM transactions WHERE date LIKE '{year}%'", conn)
-    
-    if not df.empty:
-        total_income = df['income'].sum()
-        total_payment = df['payment'].sum()
-        col1, col2, col3 = st.columns(3)
-        col1.metric("کل آمدنی", f"Rs. {total_income:,.2f}")
-        col2.metric("کل اخراجات", f"Rs. {total_payment:,.2f}")
-        col3.metric("خالص بیلنس", f"Rs. {total_income - total_payment:,.2f}")
-        
-        st.subheader("حالیہ اندراجات")
-        st.dataframe(df.tail(10).iloc[::-1], use_container_width=True)
-    else:
-        st.info(f"سال {year} کے لیے کوئی ڈیٹا موجود نہیں")
+# ============================================================================
+# REPORTS API
+# ============================================================================
 
-elif menu == "➕ نئی انٹری":
-    st.header("واؤچر اندراج")
-    tab1, tab2 = st.tabs(["💰 آمدنی", "💸 ادائیگی"])
+@app.route("/api/reports/trial-balance")
+@login_required
+def trial_balance():
+    """Generate trial balance"""
+    db = get_db()
+    result = db.execute("""
+        SELECT account_code, 
+               SUM(debit) as total_debit,
+               SUM(credit) as total_credit,
+               (SUM(debit) - SUM(credit)) as balance
+        FROM entries
+        GROUP BY account_code
+        ORDER BY account_code
+    """).fetchall()
+    db.close()
     
-    with tab1:
-        with st.form("income_form", clear_on_submit=True):
-            col1, col2 = st.columns(2)
-            with col1:
-                date = st.date_input("تاریخ", key="inc_date")
-                code = st.selectbox("کھاتہ کوڈ", list(ACCOUNT_MASTER.keys()),
-                                    format_func=lambda x: f"{x} - {ACCOUNT_MASTER[x]}", key="inc_code")
-                receipt = st.text_input("رسید نمبر (اختیاری)", key="inc_receipt")
-            with col2:
-                amount = st.number_input("رقم", min_value=0.0, step=100.0, key="inc_amt")
-                jvno = st.text_input("جرنل واؤچر نمبر", key="inc_jvno")
-            desc = st.text_area("تفصیل", key="inc_desc")
-            if st.form_submit_button("💰 آمدنی محفوظ کریں"):
-                c.execute("INSERT INTO transactions VALUES (?,?,?,?,?,?,?,?)",
-                          (str(date), receipt, jvno, code, ACCOUNT_MASTER[code], desc, amount, 0))
-                conn.commit()
-                st.success("آمدنی ریکارڈ محفوظ ہو گئی")
-                st.rerun()
-    
-    with tab2:
-        with st.form("payment_form", clear_on_submit=True):
-            col1, col2 = st.columns(2)
-            with col1:
-                date = st.date_input("تاریخ", key="pay_date")
-                code = st.selectbox("کھاتہ کوڈ", list(ACCOUNT_MASTER.keys()),
-                                    format_func=lambda x: f"{x} - {ACCOUNT_MASTER[x]}", key="pay_code")
-                receipt = st.text_input("رسید نمبر (اختیاری)", key="pay_receipt")
-            with col2:
-                amount = st.number_input("رقم", min_value=0.0, step=100.0, key="pay_amt")
-                jvno = st.text_input("جرنل واؤچر نمبر", key="pay_jvno")
-            desc = st.text_area("تفصیل", key="pay_desc")
-            if st.form_submit_button("💸 ادائیگی محفوظ کریں"):
-                c.execute("INSERT INTO transactions VALUES (?,?,?,?,?,?,?,?)",
-                          (str(date), receipt, jvno, code, ACCOUNT_MASTER[code], desc, 0, amount))
-                conn.commit()
-                st.success("ادائیگی ریکارڈ محفوظ ہو گئی")
-                st.rerun()
+    return jsonify([
+        {
+            "account_code": r["account_code"],
+            "total_debit": r["total_debit"] or 0,
+            "total_credit": r["total_credit"] or 0,
+            "balance": r["balance"] or 0
+        }
+        for r in result
+    ])
 
-elif menu == "📒 کیش بک":
-    st.header("کیش بک (روزنامچہ)")
-    year = st.session_state['selected_year']
-    df = pd.read_sql_query(f"""
-        SELECT date, receipt_no, jvno, code, name, description, income, payment
-        FROM transactions WHERE date LIKE '{year}%'
-        ORDER BY date
-    """, conn)
+@app.route("/api/reports/ledger/<code>")
+@login_required
+def ledger_report(code):
+    """Get ledger for specific account"""
+    db = get_db()
+    entries = db.execute(
+        "SELECT * FROM entries WHERE account_code = ? ORDER BY entry_date",
+        (code,)
+    ).fetchall()
+    db.close()
     
-    if not df.empty:
-        df['بیلنس'] = (df['income'] - df['payment']).cumsum()
-        st.dataframe(df, use_container_width=True)
-        
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.download_button("📥 CSV ڈاؤن لوڈ", df.to_csv(index=False), f"cashbook_{year}.csv")
-        with col2:
-            st.markdown(download_link(df, f"cashbook_{year}.xlsx", "📊 ایکسل ڈاؤن لوڈ"), unsafe_allow_html=True)
-        with col3:
-            print_button()
-    else:
-        st.warning(f"سال {year} میں کوئی لین دین نہیں")
+    return jsonify([dict(e) for e in entries])
 
-elif menu == "📚 لیجر":
-    st.header("کھاتہ وار لیجر")
-    year = st.session_state['selected_year']
-    code = st.selectbox("کھاتہ منتخب کریں", list(ACCOUNT_MASTER.keys()),
-                        format_func=lambda x: f"{x} - {ACCOUNT_MASTER[x]}")
-    
-    df = pd.read_sql_query(f"""
-        SELECT date, receipt_no, jvno, description, income, payment
-        FROM transactions WHERE code = '{code}' AND date LIKE '{year}%'
-        ORDER BY date
-    """, conn)
-    
-    if not df.empty:
-        # اوپننگ بیلنس شامل کریں
-        c.execute("SELECT balance FROM opening_balances WHERE year=? AND code=?", (year, code))
-        opening = c.fetchone()
-        opening_bal = opening[0] if opening else 0.0
-        
-        df['بیلنس'] = opening_bal + (df['income'] - df['payment']).cumsum()
-        st.subheader(f"اوپننگ بیلنس: Rs. {opening_bal:,.2f}")
-        st.dataframe(df, use_container_width=True)
-        st.download_button("📥 لیجر ڈاؤن لوڈ", df.to_csv(index=False), f"ledger_{code}_{year}.csv")
-        print_button()
-    else:
-        st.warning("اس کھاتہ میں کوئی اندراج نہیں")
+# ============================================================================
+# HTML PAGES
+# ============================================================================
 
-elif menu == "⚖️ ٹرائل بیلنس":
-    st.header("ٹرائل بیلنس")
-    year = st.session_state['selected_year']
-    
-    # ہر اکاؤنٹ کے لیے کل آمدنی اور ادائیگی نکالیں
-    query = f"""
-        SELECT code, name, SUM(income) as total_income, SUM(payment) as total_payment
-        FROM transactions WHERE date LIKE '{year}%'
-        GROUP BY code, name
-    """
-    df = pd.read_sql_query(query, conn)
-    
-    # اوپننگ بیلنس شامل کریں
-    ob_df = pd.read_sql_query(f"SELECT code, balance FROM opening_balances WHERE year='{year}'", conn)
-    
-    if not df.empty or not ob_df.empty:
-        # ڈیٹا کو ضم کریں
-        df = pd.merge(df, ob_df, on='code', how='outer').fillna(0)
-        df['balance'] = df['balance'] + df['total_income'] - df['total_payment']
-        df = df[['code', 'name', 'balance']].sort_values('code')
-        
-        st.dataframe(df, use_container_width=True)
-        st.download_button("📥 ٹرائل بیلنس ڈاؤن لوڈ", df.to_csv(index=False), f"trial_balance_{year}.csv")
-        print_button()
-    else:
-        st.warning(f"سال {year} کے لیے کوئی ڈیٹا نہیں")
+@app.route("/")
+def index():
+    """Main page"""
+    return render_template("index.html", brand_name=BRAND_NAME, brand_name_en=BRAND_NAME_EN)
 
-elif menu == "🔓 اوپننگ بیلنس":
-    st.header("اوپننگ بیلنس سیٹ کریں")
-    year = st.text_input("سال درج کریں (مثلاً 2025)", max_chars=4)
-    code = st.selectbox("کھاتہ منتخب کریں", list(ACCOUNT_MASTER.keys()),
-                        format_func=lambda x: f"{x} - {ACCOUNT_MASTER[x]}")
-    balance = st.number_input("بیلنس رقم", step=100.0)
+@app.route("/dashboard")
+def dashboard():
+    """Dashboard page"""
+    return render_template("dashboard.html")
+
+@app.route("/entries")
+def entries_page():
+    """Entries management page"""
+    return render_template("entries.html")
+
+@app.route("/accounts")
+def accounts_page():
+    """Accounts management page"""
+    return render_template("accounts.html")
+
+@app.route("/reports")
+def reports_page():
+    """Reports page"""
+    return render_template("reports.html")
+
+# ============================================================================
+# STATIC FILES
+# ============================================================================
+
+@app.route("/static/<path:filename>")
+def static_files(filename):
+    return send_from_directory(STATIC_DIR, filename)
+
+# ============================================================================
+# ERROR HANDLERS
+# ============================================================================
+
+@app.errorhandler(404)
+def not_found(error):
+    return jsonify({"error": "صفحہ نہیں ملا"}), 404
+
+@app.errorhandler(500)
+def server_error(error):
+    return jsonify({"error": "سرور کی خرابی"}), 500
+
+# ============================================================================
+# INITIALIZATION & RUN
+# ============================================================================
+
+if __name__ == "__main__":
+    STATIC_DIR.mkdir(exist_ok=True)
+    TEMPLATES_DIR.mkdir(exist_ok=True)
     
-    if st.button("محفوظ کریں"):
-        c.execute("INSERT OR REPLACE INTO opening_balances (year, code, balance) VALUES (?,?,?)",
-                  (year, code, balance))
-        conn.commit()
-        st.success(f"{year} کے لیے اوپننگ بیلنس سیٹ ہو گیا")
+    init_db()
+    seed_default_user()
     
-    # موجودہ اوپننگ بیلنس دکھائیں
-    st.subheader("موجودہ اوپننگ بیلنسز")
-    df_ob = pd.read_sql_query("SELECT year, code, balance FROM opening_balances ORDER BY year DESC", conn)
-    if not df_ob.empty:
-        st.dataframe(df_ob)
-    else:
-        st.info("ابھی تک کوئی اوپننگ بیلنس سیٹ نہیں")
-
-elif menu == "📤 ڈیٹا اپ لوڈ":
-    st.header("پرانی DBF فائلیں اپ لوڈ کریں")
-    uploaded_files = st.file_uploader("DBF فائلیں منتخب کریں", type=['dbf'], accept_multiple_files=True)
-    if st.button("ڈیٹا امپورٹ کریں") and uploaded_files:
-        for file in uploaded_files:
-            result = process_dbf(file)
-            if isinstance(result, int):
-                st.success(f"{file.name}: {result} ریکارڈ شامل ہوئے")
-            else:
-                st.error(f"{file.name}: {result}")
-        st.rerun()
-
-elif menu == "⚙️ بیک اپ/ریسٹور":
-    st.header("ڈیٹا بیس مینجمنٹ")
-    tab1, tab2 = st.tabs(["💾 بیک اپ ڈاؤن لوڈ", "📂 ریسٹور"])
-    with tab1:
-        st.write("پورے ڈیٹا بیس کی فائل ڈاؤن لوڈ کریں")
-        with open('madrasa_accounts.db', 'rb') as f:
-            st.download_button("⬇️ ڈیٹا بیس ڈاؤن لوڈ", f, file_name="madrasa_backup.db")
-    with tab2:
-        uploaded_db = st.file_uploader("بیک اپ فائل منتخب کریں (.db)", type=['db'])
-        if uploaded_db and st.button("ریسٹور کریں"):
-            with open('madrasa_accounts.db', 'wb') as f:
-                f.write(uploaded_db.getbuffer())
-            st.success("ڈیٹا بیس کامیابی سے ریسٹور ہو گیا۔ براہ کرم ایپ ری لوڈ کریں۔")
-            st.button("🔄 ری لوڈ ایپ", on_click=lambda: st.rerun())
-
-# ---------------------------- فوٹر ----------------------------
-st.markdown("---")
-st.caption("© جامعہ ملیہ اسلامیہ اکاؤنٹنگ سسٹم | تیار کردہ: Streamlit")
+    print(f"🏫 {BRAND_NAME}")
+    print("جدید حساب کتاب کا نظام")
+    print("=" * 50)
+    print("http://127.0.0.1:5000 پر چل رہا ہے")
+    print("=" * 50)
+    
+    app.run(debug=True, host="127.0.0.1", port=5000)
